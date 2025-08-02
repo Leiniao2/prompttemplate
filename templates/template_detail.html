@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}{{ template.name }} - Prompt Template Manager{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>{{ template.name }}</h2>
+        <p class="text-muted">{{ template.description }}</p>
+        
+        <div class="mb-3">
+            <span class="badge bg-primary">{{ template.category }}</span>
+            {% for tag in template.tags %}
+            <span class="badge bg-secondary ms-1">{{ tag }}</span>
+            {% endfor %}
+            <small class="text-muted ms-3">Used {{ template.usage_count }} times</small>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Template</h5>
+            </div>
+            <div class="card-body">
+                <pre class="mb-0">{{ template.template }}</pre>
+            </div>
+        </div>
+        
+        {% if template.variables %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Test Template</h5>
+            </div>
+            <div class="card-body">
+                <form id="renderForm">
+                    {% for variable in template.variables %}
+                    <div class="mb-3">
+                        <label for="var_{{ variable }}" class="form-label">{{ variable }}</label>
+                        <input type="text" class="form-control" id="var_{{ variable }}" name="{{ variable }}">
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-success">Render Template</button>
+                </form>
+                
+                <div id="renderedResult" class="mt-3" style="display: none;">
+                    <h6>Rendered Output:</h6>
+                    <div class="alert alert-success">
+                        <pre id="renderedText"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="mb-3">
+            <a href="{{ url_for('edit_template', template_id=template.key.id()) }}" class="btn btn-primary">Edit Template</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6>Template Info</h6>
+            </div>
+            <div class="card-body">
+                <p><strong>Created:</strong> {{ template.created_date.strftime('%Y-%m-%d %H:%M') if template.created_date }}</p>
+                <p><strong>Modified:</strong> {{ template.modified_date.strftime('%Y-%m-%d %H:%M') if template.modified_date }}</p>
+                <p><strong>Variables:</strong> {{ template.variables|length }}</p>
+                {% if template.variables %}
+                <ul class="list-unstyled">
+                    {% for var in template.variables %}
+                    <li><code>{{var}}</code></li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('renderForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const variables = {};
+    for (let [key, value] of formData.entries()) {
+        variables[key] = value;
+    }
+    
+    try {
+        const response = await fetch(`/api/render/{{ template.key.id() }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(variables)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            document.getElementById('renderedText').textContent = result.rendered;
+            document.getElementById('renderedResult').style.display = 'block';
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Error rendering template: ' + error.message);
+    }
+});
+</script>
+{% endblock %}
